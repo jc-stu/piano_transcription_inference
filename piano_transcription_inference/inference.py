@@ -50,7 +50,7 @@ class PianoTranscription(object):
             classes_num=self.classes_num)
 
         # Load model
-        checkpoint = torch.load(checkpoint_path, map_location=device)
+        checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
         self.model.load_state_dict(checkpoint['model'], strict=False)
 
         # Parallel

@@ -1,7 +1,7 @@
-import os
 import argparse
-import torch
 import time
+
+import torch
 
 from piano_transcription_inference import PianoTranscription, sample_rate, load_audio
 
@@ -15,11 +15,11 @@ def inference(args):
       cuda: bool
     """
 
-    # Arugments & parameters
+    # Arguments & parameters
     audio_path = args.audio_path
     output_midi_path = args.output_midi_path
     device = 'cuda' if args.cuda and torch.cuda.is_available() else 'cpu'
- 
+
     # Load audio
     (audio, _) = load_audio(audio_path, sr=sample_rate, mono=True)
 
@@ -36,7 +36,6 @@ def inference(args):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--audio_path', type=str, required=True)
     parser.add_argument('--output_midi_path', type=str, required=True)

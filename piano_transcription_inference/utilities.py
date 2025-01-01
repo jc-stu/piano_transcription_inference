@@ -1,19 +1,20 @@
 import os
-import numpy as np
+
 import audioread
 import librosa
+import numpy as np
 from mido import MidiFile
 
-from .piano_vad import (note_detection_with_onset_offset_regress, 
-    pedal_detection_with_onset_offset_regress)
 from . import config
+from .piano_vad import (note_detection_with_onset_offset_regress,
+                        pedal_detection_with_onset_offset_regress)
 
 
 def create_folder(fd):
     if not os.path.exists(fd):
         os.makedirs(fd)
-        
-        
+
+
 def get_filename(path):
     path = os.path.realpath(path)
     na_ext = path.split('/')[-1]
@@ -32,13 +33,13 @@ def float32_to_int16(x):
 
 def int16_to_float32(x):
     return (x / 32767.).astype(np.float32)
-    
+
 
 def pad_truncate_sequence(x, max_len):
     if len(x) < max_len:
         return np.concatenate((x, np.zeros(max_len - len(x))))
     else:
-        return x[0 : max_len]
+        return x[0: max_len]
 
 
 def read_midi(midi_path):
@@ -79,7 +80,7 @@ def read_midi(midi_path):
         time_in_second.append(ticks / ticks_per_second)
 
     midi_dict = {
-        'midi_event': np.array(message_list), 
+        'midi_event': np.array(message_list),
         'midi_event_time': np.array(time_in_second)}
 
     return midi_dict
@@ -97,7 +98,7 @@ def write_events_to_midi(start_time, note_events, pedal_events, midi_path):
       midi_path: str
     """
     from mido import Message, MidiFile, MidiTrack, MetaMessage
-    
+
     # This configuration is the same as MIDIs in MAESTRO dataset
     ticks_per_beat = 384
     beats_per_second = 2
@@ -116,21 +117,21 @@ def write_events_to_midi(start_time, note_events, pedal_events, midi_path):
 
     # Track 1
     track1 = MidiTrack()
-    
+
     # Message rolls of MIDI
     message_roll = []
 
     for note_event in note_events:
         # Onset
         message_roll.append({
-            'time': note_event['onset_time'], 
-            'midi_note': note_event['midi_note'], 
+            'time': note_event['onset_time'],
+            'midi_note': note_event['midi_note'],
             'velocity': note_event['velocity']})
 
         # Offset
         message_roll.append({
-            'time': note_event['offset_time'], 
-            'midi_note': note_event['midi_note'], 
+            'time': note_event['offset_time'],
+            'midi_note': note_event['midi_note'],
             'velocity': 0})
 
     if pedal_events:
@@ -148,9 +149,12 @@ def write_events_to_midi(start_time, note_events, pedal_events, midi_path):
             diff_ticks = this_ticks - previous_ticks
             previous_ticks = this_ticks
             if 'midi_note' in message.keys():
-                track1.append(Message('note_on', note=message['midi_note'], velocity=message['velocity'], time=diff_ticks))
+                track1.append(
+                    Message('note_on', note=message['midi_note'], velocity=message['velocity'], time=diff_ticks))
             elif 'control_change' in message.keys():
-                track1.append(Message('control_change', channel=0, control=message['control_change'], value=message['value'], time=diff_ticks))
+                track1.append(
+                    Message('control_change', channel=0, control=message['control_change'], value=message['value'],
+                            time=diff_ticks))
     track1.append(MetaMessage('end_of_track', time=1))
     midi_file.tracks.append(track1)
 
@@ -158,9 +162,9 @@ def write_events_to_midi(start_time, note_events, pedal_events, midi_path):
 
 
 class RegressionPostProcessor(object):
-    def __init__(self, frames_per_second, classes_num, onset_threshold, 
-        offset_threshold, frame_threshold, pedal_offset_threshold):
-        """Postprocess the output probabilities of a transription model to MIDI 
+    def __init__(self, frames_per_second, classes_num, onset_threshold,
+                 offset_threshold, frame_threshold, pedal_offset_threshold):
+        """Postprocess the output probabilities of a transcription model to MIDI
         events.
 
         Args:
@@ -200,7 +204,7 @@ class RegressionPostProcessor(object):
 
           est_pedal_events: list of dict, e.g. [
             {'onset_time': 0.17, 'offset_time': 0.96}, 
-            {'osnet_time': 1.17, 'offset_time': 2.65}]
+            {'onset_time': 1.17, 'offset_time': 2.65}]
         """
 
         # Post process piano note outputs to piano note and pedal events information
@@ -220,7 +224,7 @@ class RegressionPostProcessor(object):
         return est_note_events, est_pedal_events
 
     def output_dict_to_note_pedal_arrays(self, output_dict):
-        """Postprocess the output probabilities of a transription model to MIDI 
+        """Postprocess the output probabilities of a transcription model to MIDI
         events.
 
         Args:
@@ -252,16 +256,16 @@ class RegressionPostProcessor(object):
         # Calculate binarized onset output from regression output
         (onset_output, onset_shift_output) = \
             self.get_binarized_output_from_regression(
-                reg_output=output_dict['reg_onset_output'], 
+                reg_output=output_dict['reg_onset_output'],
                 threshold=self.onset_threshold, neighbour=2)
 
         output_dict['onset_output'] = onset_output  # Values are 0 or 1
-        output_dict['onset_shift_output'] = onset_shift_output  
+        output_dict['onset_shift_output'] = onset_shift_output
 
         # Calculate binarized offset output from regression output
         (offset_output, offset_shift_output) = \
             self.get_binarized_output_from_regression(
-                reg_output=output_dict['reg_offset_output'], 
+                reg_output=output_dict['reg_offset_output'],
                 threshold=self.offset_threshold, neighbour=4)
 
         output_dict['offset_output'] = offset_output  # Values are 0 or 1
@@ -277,7 +281,7 @@ class RegressionPostProcessor(object):
             # Calculate binarized pedal offset output from regression output
             (pedal_offset_output, pedal_offset_shift_output) = \
                 self.get_binarized_output_from_regression(
-                    reg_output=output_dict['reg_pedal_offset_output'], 
+                    reg_output=output_dict['reg_pedal_offset_output'],
                     threshold=self.pedal_offset_threshold, neighbour=4)
 
             output_dict['pedal_offset_output'] = pedal_offset_output  # Values are 0 or 1
@@ -290,9 +294,9 @@ class RegressionPostProcessor(object):
         if 'reg_pedal_onset_output' in output_dict.keys():
             # Detect piano pedals from output_dict
             est_pedal_on_offs = self.output_dict_to_detected_pedals(output_dict)
- 
+
         else:
-            est_pedal_on_offs = None    
+            est_pedal_on_offs = None
 
         return est_on_off_note_vels, est_pedal_on_offs
 
@@ -312,7 +316,7 @@ class RegressionPostProcessor(object):
         binary_output = np.zeros_like(reg_output)
         shift_output = np.zeros_like(reg_output)
         (frames_num, classes_num) = reg_output.shape
-        
+
         for k in range(classes_num):
             x = reg_output[:, k]
             for n in range(neighbour, frames_num - neighbour):
@@ -330,7 +334,8 @@ class RegressionPostProcessor(object):
 
         return binary_output, shift_output
 
-    def is_monotonic_neighbour(self, x, n, neighbour):
+    @staticmethod
+    def is_monotonic_neighbour(x, n, neighbour):
         """Detect if values are monotonic in both side of x[n].
 
         Args:
@@ -373,26 +378,26 @@ class RegressionPostProcessor(object):
         est_tuples = []
         est_midi_notes = []
         classes_num = output_dict['frame_output'].shape[-1]
- 
+
         for piano_note in range(classes_num):
             """Detect piano notes"""
             est_tuples_per_note = note_detection_with_onset_offset_regress(
-                frame_output=output_dict['frame_output'][:, piano_note], 
-                onset_output=output_dict['onset_output'][:, piano_note], 
-                onset_shift_output=output_dict['onset_shift_output'][:, piano_note], 
-                offset_output=output_dict['offset_output'][:, piano_note], 
-                offset_shift_output=output_dict['offset_shift_output'][:, piano_note], 
-                velocity_output=output_dict['velocity_output'][:, piano_note], 
+                frame_output=output_dict['frame_output'][:, piano_note],
+                onset_output=output_dict['onset_output'][:, piano_note],
+                onset_shift_output=output_dict['onset_shift_output'][:, piano_note],
+                offset_output=output_dict['offset_output'][:, piano_note],
+                offset_shift_output=output_dict['offset_shift_output'][:, piano_note],
+                velocity_output=output_dict['velocity_output'][:, piano_note],
                 frame_threshold=self.frame_threshold)
-            
+
             est_tuples += est_tuples_per_note
             est_midi_notes += [piano_note + self.begin_note] * len(est_tuples_per_note)
 
-        est_tuples = np.array(est_tuples)   # (notes, 5)
+        est_tuples = np.array(est_tuples)  # (notes, 5)
         """(notes, 5), the five columns are onset, offset, onset_shift, 
         offset_shift and normalized_velocity"""
 
-        est_midi_notes = np.array(est_midi_notes) # (notes,)
+        est_midi_notes = np.array(est_midi_notes)  # (notes,)
 
         if len(est_tuples) == 0:
             return np.array([])
@@ -401,7 +406,7 @@ class RegressionPostProcessor(object):
             onset_times = (est_tuples[:, 0] + est_tuples[:, 2]) / self.frames_per_second
             offset_times = (est_tuples[:, 1] + est_tuples[:, 3]) / self.frames_per_second
             velocities = est_tuples[:, 4]
-            
+
             est_on_off_note_vels = np.stack((onset_times, offset_times, est_midi_notes, velocities), axis=-1)
             """(notes, 3), the three columns are onset_times, offset_times and velocity."""
 
@@ -426,17 +431,17 @@ class RegressionPostProcessor(object):
                [1.1400, 2.6458],
                ...]
         """
-        frames_num = output_dict['pedal_frame_output'].shape[0]
-        
+        # frames_num = output_dict['pedal_frame_output'].shape[0]
+
         est_tuples = pedal_detection_with_onset_offset_regress(
-            frame_output=output_dict['pedal_frame_output'][:, 0], 
-            offset_output=output_dict['pedal_offset_output'][:, 0], 
-            offset_shift_output=output_dict['pedal_offset_shift_output'][:, 0], 
+            frame_output=output_dict['pedal_frame_output'][:, 0],
+            offset_output=output_dict['pedal_offset_output'][:, 0],
+            offset_shift_output=output_dict['pedal_offset_shift_output'][:, 0],
             frame_threshold=0.5)
 
         est_tuples = np.array(est_tuples)
         """(notes, 2), the two columns are pedal onsets and pedal offsets"""
-        
+
         if len(est_tuples) == 0:
             return np.array([])
 
@@ -466,41 +471,42 @@ class RegressionPostProcessor(object):
         midi_events = []
         for i in range(est_on_off_note_vels.shape[0]):
             midi_events.append({
-                'onset_time': est_on_off_note_vels[i][0], 
-                'offset_time': est_on_off_note_vels[i][1], 
-                'midi_note': int(est_on_off_note_vels[i][2]), 
+                'onset_time': est_on_off_note_vels[i][0],
+                'offset_time': est_on_off_note_vels[i][1],
+                'midi_note': int(est_on_off_note_vels[i][2]),
                 'velocity': int(est_on_off_note_vels[i][3] * self.velocity_scale)})
 
         return midi_events
 
-    def detected_pedals_to_events(self, pedal_on_offs):
+    @staticmethod
+    def detected_pedals_to_events(pedal_on_offs):
         """Reformat detected pedal onset and offsets to events.
 
         Args:
           pedal_on_offs: (notes, 2), the two columns are pedal onsets and pedal
-          offsets. E.g., 
+          offsets. E.g.,
             [[0.1800, 0.9669],
              [1.1400, 2.6458],
              ...]
 
         Returns:
           pedal_events: list of dict, e.g.,
-            [{'onset_time': 0.1800, 'offset_time': 0.9669}, 
+            [{'onset_time': 0.1800, 'offset_time': 0.9669},
              {'onset_time': 1.1400, 'offset_time': 2.6458},
              ...]
         """
         pedal_events = []
         for i in range(len(pedal_on_offs)):
             pedal_events.append({
-                'onset_time': pedal_on_offs[i, 0], 
+                'onset_time': pedal_on_offs[i, 0],
                 'offset_time': pedal_on_offs[i, 1]})
-        
+
         return pedal_events
 
 
 def load_audio(path, sr=22050, mono=True, offset=0.0, duration=None,
-    dtype=np.float32, res_type='kaiser_best', 
-    backends=[audioread.ffdec.FFmpegAudioFile]):
+               dtype=np.float32, res_type='kaiser_best',
+               backends=[audioread.ffdec.FFmpegAudioFile]):
     """Load audio. Copied from librosa.core.load() except that ffmpeg backend is 
     always used in this function."""
 
@@ -561,4 +567,4 @@ def load_audio(path, sr=22050, mono=True, offset=0.0, duration=None,
     # Final cleanup for dtype and contiguity
     y = np.ascontiguousarray(y, dtype=dtype)
 
-    return (y, sr)
+    return y, sr

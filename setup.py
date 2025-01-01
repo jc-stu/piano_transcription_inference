@@ -1,11 +1,11 @@
 import setuptools
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="piano-transcription-inference",
-    version="0.0.5",
+    version="0.0.6",
     author="Qiuqiang Kong",
     author_email="qiuqiangkong@gmail.com",
     maintainer="Chuan Jiang",
@@ -20,6 +20,6 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    install_requires=['matplotlib', 'mido', 'librosa', 'torchlibrosa', 'resampy'],  # resampy for librosa
+    install_requires=['matplotlib', 'mido', 'torch', 'librosa', 'torchlibrosa', 'resampy'],  # resampy for librosa
     python_requires='>=3.6',
 )
